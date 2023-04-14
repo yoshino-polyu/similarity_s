@@ -1,0 +1,1 @@
+10 queries with timeuse = 67.333965
