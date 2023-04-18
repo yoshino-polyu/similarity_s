@@ -14,10 +14,6 @@ typedef pair<int, int> pii;
 
 #define LEN_DATA (SZ_DATA * 2) // size of total point group
 
-#define M1
-#define M2
-#define M3
-
 /**
  * main.cpp
  * totally, we have 6199528 point groups
@@ -35,9 +31,10 @@ typedef pair<int, int> pii;
  * 
  * beta is the sampling ratio, beta >= k, which is used to obtain the threshold distkBest
  * beta = 10%, 20%, 30%, 40%, 50%
- * Usage: ./main -g gs -k k -b beta
+ * q specifies choose which set of query points
+ * Example: gs = 1 and q = 1 choose Q11 (vector that stores 10 query points from group size [1,9]) as query points.
+ * Usage: ./main -g gs -k k -b beta -q q
 */
-
 FILE *fp, *fopen();
 int size_of_raw;
 int num_point_group;
@@ -64,7 +61,6 @@ raw_t rawdata[LEN_DATA + 1]; // one rawdata represents one post. index starting 
  * 		   point_group_j.insert({longitude_x, latitude_y}) // 能这样做的前提是我们需要对所有的keyword进行离散化处理, 处理完之后的大小其实就是dataset的大小
  * 每个point group都对应一个keyword, point group的大小 = 含有这个keyword的所有message的个数
 */
-
 
 int dif_keyword[KEYWORD_TYPE + KEYWORD_TYPE_2 + 1]; // map - Key: keyword value, Value: point_group_id
 vector<int> point_group_item[KEYWORD_TYPE + KEYWORD_TYPE_2 + 1]; // point_group_item[keyword] = keywords' point group. values in vecotr: index to rawdata (posts)
@@ -447,7 +443,6 @@ void get_keyword(int gs, vector<pii>* query_points) {
 	// printf("10: %d\n", cnt_9);
 	// printf("100: %d\n", cnt_99);
 	// printf("1000: %d\n", cnt_999);
-	
 	vi* tmp;
 	if (gs == 1) tmp = &range_9;
 	else if (gs == 2) tmp = &range_99;
