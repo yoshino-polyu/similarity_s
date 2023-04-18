@@ -56,13 +56,14 @@ def runRandomGreedyReturnResults(inputfile, iterations, seed=""):
 # main method to conduct the experimental design plan in Lab1 4.1
 # for each trial, generate a random graph in the format like "input_n_10_m_40_s_12345.txt" in graphdata
 # use RandomGreedy algorithm calculate the result and append the output in file "RANDOM_NMI_TIME_RES_{time}.txt" in resdata folder
+
 def NMI_TIME_EXP(run_which):
-    # K = [10]
-    K = [5, 15, 20]
-    # Q = [1, 2, 3]
-    # query_points = [1, 2, 3]
-    Q = [1]
+    K = [10]
+    # K = [5, 15, 20]
+    Q = [1, 2, 3]
     query_points = [1]
+    # Q = [1]
+    # query_points = [1]
     for k in K:
         for i in Q:
             for j in query_points:

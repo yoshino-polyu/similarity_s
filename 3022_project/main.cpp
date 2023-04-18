@@ -14,6 +14,9 @@ typedef pair<int, int> pii;
 
 #define LEN_DATA (SZ_DATA * 2) // size of total point group
 
+#define M1
+#define M2
+#define M3
 
 /**
  * main.cpp
@@ -65,7 +68,8 @@ raw_t rawdata[LEN_DATA + 1]; // one rawdata represents one post. index starting 
 
 int dif_keyword[KEYWORD_TYPE + KEYWORD_TYPE_2 + 1]; // map - Key: keyword value, Value: point_group_id
 vector<int> point_group_item[KEYWORD_TYPE + KEYWORD_TYPE_2 + 1]; // point_group_item[keyword] = keywords' point group. values in vecotr: index to rawdata (posts)
-double q2p[LEN_DATA + 1]; // Key: reference to rawdata. Value: normalised Euclidean distance from query point to the other points.
+// double q2p[LEN_DATA + 1]; // Key: reference to rawdata. Value: normalised Euclidean distance from query point to the other points.
+double cache_similarity[LEN_DATA + 1]; // Key: reference to rawdata. Values: 
 
 /**
  * @brief calculate the spatial proximity of two posts by using normalized euclidean distance
@@ -128,17 +132,12 @@ double direct_calc_distance(pii query_point, vector<int>* point_group_G) {
 double my_direct_calc_distance(pii query_point, vector<int>* point_group_G) {
 	double res = 0.0;
 	int n = point_group_G->size();
-	double spatial_proximity = 0.0;
 	for (int i = 0; i < n; i++) {
 		int other_point = (*point_group_G)[i];
-		if (!q2p[other_point]) {
-			spatial_proximity = calc_sp(query_point.fi, other_point);
-			q2p[other_point] = spatial_proximity;
-		} else {
-			spatial_proximity = q2p[other_point];
-		}
-		double text_relevance = calc_rel(query_point, other_point);
-		res += spatial_proximity * text_relevance;
+		// double spatial_proximity = calc_sp(query_point.fi, other_point);
+		// double text_relevance = calc_rel(query_point, other_point);
+		// res += spatial_proximity * text_relevance;
+		res += cache_similarity[other_point];
 	}
 	return res;
 }
@@ -164,31 +163,12 @@ double incremental_distance(pii query_point, vector<int>* point_group_G, double 
 double my_incremental_distance(pii query_point, vector<int>* point_group_G, double kbest) {
 	double res = 0.0;
 	int n = point_group_G->size();
-	int query_point_keyword = query_point.se;
-	double spatial_proximity = 0.0;
 	for (int i = 0; i < n; i++) {
 		int other_point = (*point_group_G)[i];
-		if (!q2p[other_point]) {
-			spatial_proximity = calc_sp(query_point.fi, other_point);
-			q2p[other_point] = spatial_proximity;
-		} else {
-			spatial_proximity = q2p[other_point];
-		}
-		// LB pruning
-		double dif = (1.0 / rawdata[other_point].len_keyword);
-		double LB_text_relevance = 1.0 - dif;
-		res += spatial_proximity * LB_text_relevance;
-		if (res > kbest) return res;
-
-		int l  = rawdata[other_point].len_keyword;
-		bool exist = false;
-		for (int j = 1; j <= l; j++) {
-			if (rawdata[other_point].keyword[j] == query_point_keyword) {
-				exist = true;
-				break;
-			}
-		}
-		if (!exist) res += spatial_proximity * dif;
+		// double spatial_proximity = calc_sp(query_point.fi, other_point);
+		// double text_relevance = calc_rel(query_point, other_point);
+		// res += spatial_proximity * text_relevance;
+		res += cache_similarity[other_point];
 		if (res > kbest) return res;
 	}
 	return res;
@@ -246,10 +226,10 @@ void similarity_search(pii query_point, int K, int beta, vector<int>* ans) {
 		if (dist < dist_k_Best) {
 			candSet.pop();
 			candSet.push({dist, beta_groups[i]});
-			dist_k_Best = dist;
+			dist_k_Best = candSet.top().fi;
 		}
 	}
-	
+
 	/**
 	 * @attention now the size of candSet = K
 	 * */ 
@@ -291,6 +271,12 @@ void similarity_search(pii query_point, int K, int beta, vector<int>* ans) {
 }
 
 
+double force_calc(pii query_point, int other_point) {
+	double spatial_proximity = calc_sp(query_point.fi, other_point);
+	double text_relevance = calc_rel(query_point, other_point);
+	return spatial_proximity * text_relevance;
+}
+
 /**
  * 
  * @param query_point first: index to rawdata (posts), second: exact keyword (index to point group)
@@ -298,6 +284,12 @@ void similarity_search(pii query_point, int K, int beta, vector<int>* ans) {
  * @param beta sampling ratio, 10 = 10%
 */
 void my_similarity_search(pii query_point, int K, int beta, vector<int>* ans) {
+
+	// preprocessing to calculte all the similarity distance
+	for (int i = 1; i <= size_of_raw; i++) {
+		cache_similarity[i] = force_calc(query_point, i);
+	}
+	
 	// step 1: sample beta% point groups to obtain the threshold
 	double sampling_ratio = (double) beta / 100;
 	int num_sample = (int) (sampling_ratio * num_point_group);
@@ -345,14 +337,14 @@ void my_similarity_search(pii query_point, int K, int beta, vector<int>* ans) {
 		if (dist < dist_k_Best) {
 			candSet.pop();
 			candSet.push({dist, beta_groups[i]});
-			dist_k_Best = dist;
+			dist_k_Best = candSet.top().fi;
 		}
 	}
 	
 	/**
 	 * @attention now the size of candSet = K
 	 * */
-	
+#ifdef M1
 	// step 3: perform range search at query point with radius as distkBest to retrive the collection of keywords within the range.
 	// range search to retrieve the collection of keywords within the range.
 	dist_k_Best = candSet.top().fi;
@@ -361,10 +353,10 @@ void my_similarity_search(pii query_point, int K, int beta, vector<int>* ans) {
 	if (dist < dist_k_Best) {
 		candSet.pop();
 		candSet.push({dist, query_point.se});
+		dist_k_Best = candSet.top().fi;
 		beta_set.insert(query_point.second);
-		dist_k_Best = dist;
 	}
-	
+#endif
 	/**
 	 * @attention now the size of candSet = K
 	 * */
@@ -377,7 +369,7 @@ void my_similarity_search(pii query_point, int K, int beta, vector<int>* ans) {
 		if (dist < dist_k_Best) {
 			candSet.pop();
 			candSet.push({dist, i});
-			dist_k_Best = dist;
+			dist_k_Best = candSet.top().fi;
 		}
 	}
 	
@@ -577,7 +569,8 @@ int main(int argc, char *argv[]) {
 		}
 	}
 	vi ans;
-	memset(q2p, 0, sizeof(q2p));
+	// memset(q2p, 0, sizeof(q2p));
+	memset(cache_similarity, 0, sizeof(cache_similarity));
 	// start the timer.
 	struct timeval t1, t2;
 	double timeuse;
@@ -585,7 +578,8 @@ int main(int argc, char *argv[]) {
 	for (int i = 0; i < query_points.size(); i++) {
 #ifdef MY
 		my_similarity_search(query_points[i],K,beta, &ans);
-		memset(q2p, 0, sizeof(q2p));
+		// memset(q2p, 0, sizeof(q2p));
+		memset(cache_similarity, 0, sizeof(cache_similarity));
 #endif
 #ifdef OG // origional
 		similarity_search(query_points[i], K, beta, &ans);

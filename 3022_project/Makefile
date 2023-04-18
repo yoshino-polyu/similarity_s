@@ -3,7 +3,7 @@
 #
 CC = llvm-g++
 # CC is the path of compiler
-CFLAGS = -Wall -g -Werror -DSTATS -std=c++17 -stdlib=libc++ -Wno-unused-function
+CFLAGS = -Wall -g -Werror -DMY -std=c++17 -stdlib=libc++ -Wno-unused-function
 # -Werror: Make all warnings into errors.
 # -Wall: enables all the warnings about constructions that some users consider questionable
 # -g: tells the compiler to embed debugging information for the debugger to use.

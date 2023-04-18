@@ -1,1 +1,1 @@
-10 queries with timeuse = 65.196907
+10 queries with timeuse = 50.191808
