@@ -1,5 +1,4 @@
 # similarity_s
-project
 
 main.cpp contains the implementation of my version and competitor's version [1].
 
