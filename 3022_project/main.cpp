@@ -51,17 +51,6 @@ typedef struct raw { // raw data
 } raw_t;
 
 raw_t rawdata[LEN_DATA + 1]; // one rawdata represents one post. index starting from 1
-
-/**
- * 
- * paper里面对raw data的预处理是:
- * each tweet = <date, time, keyword-list, longitude_x and latitude_y>
- * for i in all tweets
- *     for j in i.keyword-list:
- * 		   point_group_j.insert({longitude_x, latitude_y}) // 能这样做的前提是我们需要对所有的keyword进行离散化处理, 处理完之后的大小其实就是dataset的大小
- * 每个point group都对应一个keyword, point group的大小 = 含有这个keyword的所有message的个数
-*/
-
 int dif_keyword[KEYWORD_TYPE + KEYWORD_TYPE_2 + 1]; // map - Key: keyword value, Value: point_group_id
 vector<int> point_group_item[KEYWORD_TYPE + KEYWORD_TYPE_2 + 1]; // point_group_item[keyword] = keywords' point group. values in vecotr: index to rawdata (posts)
 // double q2p[LEN_DATA + 1]; // Key: reference to rawdata. Value: normalised Euclidean distance from query point to the other points.
@@ -71,7 +60,7 @@ double cache_similarity[LEN_DATA + 1]; // Key: reference to rawdata. Values:
  * @brief calculate the spatial proximity of two posts by using normalized euclidean distance
  * @param query_point index to rawdata (query point)
  * @param other_point other keyword
- * @return 0 means two points are overlap. The further the two points are from each other, the greater the value.
+ * @return range = [0, infinity] 0 means two points are overlap. The further the two points are from each other, the greater the value.
 */
 double calc_sp(int query_point, int other_point) {
 	double x1 = rawdata[query_point].longitude_x;
@@ -92,7 +81,10 @@ double calc_sp(int query_point, int other_point) {
 }
 
 /**
- * @brief Jaccard Index: https://en.wikipedia.org/wiki/Jaccard_index    0: 100% the same 1: 0% the same
+ * @brief calculate the text relevance
+ * @param query_point first: index to rawdata (posts), second: exact keyword (index to point group)
+ * @param other_point other keyword
+ * @return Jaccard Index: https://en.wikipedia.org/wiki/Jaccard_index    0: 100% the same 1: 0% the same
 */
 double calc_rel(pii query_point, int other_point) {
 	int n = rawdata[other_point].len_keyword;
@@ -105,6 +97,7 @@ double calc_rel(pii query_point, int other_point) {
 }
 
 /**
+ * @brief directly calculate similarity distance without using LB.
  * @param query_point first: index to rawdata (posts), second: exact keyword (index to point group)
  * @param point_group_G single point group
 */
@@ -154,6 +147,7 @@ double incremental_distance(pii query_point, vector<int>* point_group_G, double 
 }
 
 /**
+ * 
  * @param kbest The farthest distance from the query point in the k best results. Used to perform pruning. 
 */
 double my_incremental_distance(pii query_point, vector<int>* point_group_G, double kbest) {
@@ -171,6 +165,7 @@ double my_incremental_distance(pii query_point, vector<int>* point_group_G, doub
 }
 
 /**
+ * @brief competitors' implementation
  * @param query_point first: index to rawdata (posts), second: exact keyword (index to point group)
  * @param K number of results
  * @param beta sampling ratio, 10 = 10%
@@ -266,7 +261,9 @@ void similarity_search(pii query_point, int K, int beta, vector<int>* ans) {
 #endif
 }
 
-
+/**
+ * @brief brute force to calculate the similarity distance of query point and other points. This is used for preprocessing.
+*/
 double force_calc(pii query_point, int other_point) {
 	double spatial_proximity = calc_sp(query_point.fi, other_point);
 	double text_relevance = calc_rel(query_point, other_point);
@@ -274,14 +271,15 @@ double force_calc(pii query_point, int other_point) {
 }
 
 /**
- * 
+ * @brief my implementation
  * @param query_point first: index to rawdata (posts), second: exact keyword (index to point group)
  * @param K number of results
- * @param beta sampling ratio, 10 = 10%
+ * @param beta sampling ratio, 10 = 10% (by default)
 */
 void my_similarity_search(pii query_point, int K, int beta, vector<int>* ans) {
-
-	// preprocessing to calculte all the similarity distance
+	/**
+	 * @attention Optimization: preprocessing to calculte all the similarity distance
+	*/
 	for (int i = 1; i <= size_of_raw; i++) {
 		cache_similarity[i] = force_calc(query_point, i);
 	}
@@ -340,11 +338,10 @@ void my_similarity_search(pii query_point, int K, int beta, vector<int>* ans) {
 	/**
 	 * @attention now the size of candSet = K
 	 * */
-#ifdef M1
 	// step 3: perform range search at query point with radius as distkBest to retrive the collection of keywords within the range.
 	// range search to retrieve the collection of keywords within the range.
 	dist_k_Best = candSet.top().fi;
-	// 优先考虑 query point对应的post里面的keyword, 这样可以让dist_k_Best收敛得更快, 考虑完之后再考虑其他的point group.
+	// Optimization: First consider the point set (group) of q.keyword, so that dist_k_Best can converge faster. 
 	double dist = my_incremental_distance(query_point, &point_group_item[query_point.se], dist_k_Best);
 	if (dist < dist_k_Best) {
 		candSet.pop();
@@ -352,7 +349,6 @@ void my_similarity_search(pii query_point, int K, int beta, vector<int>* ans) {
 		dist_k_Best = candSet.top().fi;
 		beta_set.insert(query_point.second);
 	}
-#endif
 	/**
 	 * @attention now the size of candSet = K
 	 * */
@@ -395,14 +391,24 @@ void my_similarity_search(pii query_point, int K, int beta, vector<int>* ans) {
 
 /**
  * @brief load the data into our memory space.
+ * 
 */
 void get_keyword(int gs, vector<pii>* query_points) {
+/**
+ * 
+ * paper里面对raw data的预处理是:
+ * each tweet = <date, time, keyword-list, longitude_x and latitude_y>
+ * for i in all tweets
+ *     for j in i.keyword-list:
+ * 		   point_group_j.insert({longitude_x, latitude_y}) // 能这样做的前提是我们需要对所有的keyword进行离散化处理, 处理完之后的大小其实就是dataset的大小
+ * 每个point group都对应一个keyword, point group的大小 = 含有这个keyword的所有message的个数
+*/
 	int n;
-	fscanf(fp, "%d", &n);
+	fscanf(fp, "%d", &n); // n posts
 	size_of_raw = n;
 	memset(dif_keyword, 0, sizeof(dif_keyword));
 	int point_group_id = 0;
-	for (int i = 1; i <= n; i++) {
+	for (int i = 1; i <= n; i++) { // for each post = <date, time, keyword-list, longitude_x, latitude_y>
 		int len_keyword;
 		fscanf(fp, "%d", &len_keyword);
 		rawdata[i].len_keyword = len_keyword;
@@ -410,14 +416,14 @@ void get_keyword(int gs, vector<pii>* query_points) {
 			int keyword;
 			fscanf(fp, "%d", &keyword);
 			/**
-			 * assume there is 100 keyword in our dataset, then point_group_id will increment from 1 to 100.
+			 * if there is 100 keyword in our dataset, then point_group_id will increment from 1 to 100.
 			*/
 			if (!dif_keyword[keyword]) { // new keyword
 				++point_group_id;
 				dif_keyword[keyword] = point_group_id;
 			}
 			rawdata[i].keyword[j] = keyword;
-			point_group_item[dif_keyword[keyword]].pb(i);
+			point_group_item[dif_keyword[keyword]].pb(i); // push rawdata index to dif_keyword[keyword] point set. 
 		}
 		fscanf(fp, "%lf", &rawdata[i].longitude_x);
 		fscanf(fp, "%lf", &rawdata[i].latitude_y);
@@ -511,7 +517,7 @@ int main(int argc, char *argv[]) {
 	
 	vector<pii> query_points; // first: index to rawdata (posts), second: exact keyword
 	get_keyword(choice_of_group_size, &query_points); // load data into our space. 	
-	query_points.clear();
+	query_points.clear(); // clear the query points, use the prepared one. 
 	if (choice_of_group_size == 1) {
 		if (which_query_points == 1) {
 			for (auto item : Q11) {
