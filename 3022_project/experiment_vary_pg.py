@@ -17,46 +17,14 @@ def compileCPrograms(run_which):
         subprocess.call(["llvm-g++", "-DOG", "-Wall", "-Werror", "-std=c++17", "-I.", "main.cpp", "-o", "main"])
     print("Compile finished...")
 
-# generate the graph with n vertices and m edges, the graph is put in the output_file.
-def generateRandomGraph(n, m, seed="", output_file=os.path.join("graphdata", "input_default.txt")):
-    logger.debug(f"generating random graph with n = {n} m = {m} seed = {seed} output_file with path = {output_file}")
-    with open(output_file, "w") as f:
-        logger.debug("type of seed = %s", type(seed))
-        if seed:   
-            subprocess.call(["./randomgraph", str(n), str(m), seed], stdout=f)
-        else:
-            subprocess.call(["./randomgraph", str(n), str(m)], stdout=f)
-    
-    print("Random graph has been written into {}".format(output_file))
-
+# run similarity search algorithm on input.txt. Append the result (response time of 10 queries) to appendFile.
 def runMain(Q, query_points, K, appendFile=os.path.join("graphdata", "result_default.txt")):
     with open(appendFile, "a") as f:
         subprocess.call(["./main", "-g", str(Q), "-k", str(K), "-b", str(10), "-q", str(query_points)], stdout=f)    
     print("finish run runMain Q = {}, query_points = {}, K = {}".format(Q, query_points, K))
 
-# run RandomGreedy algorithm on graph in inputfile. Append the result to appendFile.
-# the output format is "n m iterations #OfColorsChecked usedColorNumber"
-def runRandomGreedyToFile(inputfile, iterations, seed="", appendFile=os.path.join("graphdata", "result_default.txt")):
-    with open(appendFile, "a") as f:
-        if seed:
-            subprocess.call(["./randomgreedy", "-f", inputfile, "-i", str(iterations), "-s", seed, "-b"], stdout=f)
-        else:
-            subprocess.call(["./randomgreedy", "-f", inputfile, "-i", str(iterations), "-b"], stdout=f)
-    print("Run random greedy ({},i={}) complete...".format(inputfile, iterations))
-
-# same with runRandomGreedyToFile but return the output but not to file.
-def runRandomGreedyReturnResults(inputfile, iterations, seed=""):
-    if seed:
-        result = subprocess.check_output(["./randomgreedy", "-f", inputfile, "-i", str(iterations), "-s", seed, "-b"]).decode("utf-8")
-    else:
-        result = subprocess.check_output(["./randomgreedy", "-f", inputfile, "-i", str(iterations), "-b"]).decode("utf-8")
-    print("Run random greedy ({},i={}) complete...".format(inputfile, iterations))
-    return result
-
 # main method to conduct the experimental design plan in Lab1 4.1
-# for each trial, generate a random graph in the format like "input_n_10_m_40_s_12345.txt" in graphdata
-# use RandomGreedy algorithm calculate the result and append the output in file "RANDOM_NMI_TIME_RES_{time}.txt" in resdata folder
-
+# for each trial, generate a statistic of performance in the format like "Co_OUTPUT_5_1_1.txt"
 def NMI_TIME_EXP(run_which):
     K = [10]
     # K = [5, 15, 20]
